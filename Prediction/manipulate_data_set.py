@@ -2,7 +2,6 @@ import pandas as pd
 from sklearn import preprocessing
 import numpy as np
 
-csvPath = r"C:\Users\andre\Downloads\AAPL.csv"
 
 pd.set_option("display.max_rows", None, "display.max_columns", None)
 np.set_printoptions(threshold=np.inf)
@@ -14,23 +13,30 @@ def createDataSet(csv):
     #drops Adj close column same way as above
     data = data.drop('Adj Close', axis=1)
 
+    #removes the first 50 rows of data from the data frame
+    data = data.iloc[500:]
+    #creates just values so no slice error?
+    data = data.values
     #puts all of the values into 0-1 (normalizing) I think it drops the labels maybe?
     normalise = preprocessing.MinMaxScaler()
     dataNormalised = normalise.fit_transform(data)
-    #print(data)
 
-    #ohlc become a list of numpy arrays that contain the rows next to each other equal to dayRange
+    #ohlc become a list of numpy arrays that contain the rows next to each other equal to dayRange of normalised data
     dayRange = 50
-    ohlcArray = np.array([dataNormalised[i:i + dayRange].copy() for i in range(len(dataNormalised) - dayRange)])
+    ohlcArrayNorm = np.array([dataNormalised[i:i + dayRange].copy() for i in range(len(dataNormalised) - dayRange)])
 
     #numpy array of the last dayRange(50) opening values
     nextOpenNorm = np.array([dataNormalised[:, 0][i + dayRange].copy() for i in range(len(dataNormalised) - dayRange)])
+
     #expands dimension by 1, by putting each price in its own array inside the nextOpenVals array becoming an array of arrays
     nextOpenNorm = np.expand_dims(nextOpenNorm, -1)
 
-
     nextOpen = np.array([data[:, 0][i + dayRange].copy() for i in range(len(data) - dayRange)])
-    print(nextOpen)
+    #expands dimension of nextOpen so it can be used to fit
+    nextOpen = np.expand_dims(nextOpen, -1)
+
+    openNormaliser = preprocessing.MinMaxScaler()
+    openNormaliser = openNormaliser.fit(nextOpen)
 
     def calculateEMA(ohlcList, timePeriod):
         #finds the simple moving average so the first EMA has a previous moving average to use in the formula
@@ -53,17 +59,22 @@ def createDataSet(csv):
         #returns the last value in the array of EMAs because it is the EMA of all the range of data given
         return emaVals[-1]
 
+
     #technical indicator is a pattern based  signal
     technicalIndicators = []
     #loop will store all the EMAs or SMAs of the prices
-    for currPriceArr in ohlcArray:
+    for currPriceArr in ohlcArrayNorm:
         simpleMA = np.mean(currPriceArr[:, 3])
         exponentialMA = calculateEMA(currPriceArr, 50)
-        technicalIndicators.append([simpleMA])
+        macd = calculateEMA(currPriceArr, 12) - calculateEMA(currPriceArr, 26)
+        technicalIndicators.append([exponentialMA, simpleMA, macd])
         #technicalIndicators.append([simpleMA, exponentialMA])
 
+    #turns the technical indicators to be in between the values 0 and 1
+    techScaler = preprocessing.MinMaxScaler()
+    technicalIndicatorsNorm = techScaler.fit_transform(technicalIndicators)
 
-    return ohlcArray
+    #assert creates an error message if the condition is false, the string after the comma is printed
+    assert ohlcArrayNorm.shape[0] == technicalIndicatorsNorm.shape[0] == nextOpenNorm.shape[0], 'The lengths of ohlcArray, technical_indicatorsNorm and nextOpenNorm are not equal'
+    return ohlcArrayNorm, technicalIndicatorsNorm, nextOpenNorm, nextOpen, openNormaliser
 
-data = createDataSet(csvPath)
-#print(data[:5])
