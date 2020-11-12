@@ -6,7 +6,7 @@ import numpy as np
 pd.set_option("display.max_rows", None, "display.max_columns", None)
 np.set_printoptions(threshold=np.inf)
 
-def createDataSet(csv):
+def createDataSet(csv, timePeriod):
     data = pd.read_csv(csv)
     #drops date from the dataset axis parameter means to delete the column of all the dates
     data = data.drop('Date', axis=1)
@@ -22,7 +22,7 @@ def createDataSet(csv):
     dataNormalised = normalise.fit_transform(data)
 
     #ohlc become a list of numpy arrays that contain the rows next to each other equal to dayRange of normalised data
-    dayRange = 50
+    dayRange = timePeriod
     ohlcArrayNorm = np.array([dataNormalised[i:i + dayRange].copy() for i in range(len(dataNormalised) - dayRange)])
 
     #numpy array of the last dayRange(50) opening values
@@ -61,20 +61,30 @@ def createDataSet(csv):
 
 
     #technical indicator is a pattern based  signal
-    technicalIndicators = []
+    smaArray = []
+    emaArray = []
+    macdArray = []
     #loop will store all the EMAs or SMAs of the prices
     for currPriceArr in ohlcArrayNorm:
         simpleMA = np.mean(currPriceArr[:, 3])
         exponentialMA = calculateEMA(currPriceArr, 50)
         macd = calculateEMA(currPriceArr, 12) - calculateEMA(currPriceArr, 26)
-        technicalIndicators.append([exponentialMA, simpleMA, macd])
+        smaArray.append([simpleMA])
+        emaArray.append([exponentialMA])
+        macdArray.append([macd])
         #technicalIndicators.append([simpleMA, exponentialMA])
 
     #turns the technical indicators to be in between the values 0 and 1
-    techScaler = preprocessing.MinMaxScaler()
-    technicalIndicatorsNorm = techScaler.fit_transform(technicalIndicators)
+    smaArrayNormaliser = preprocessing.MinMaxScaler()
+    smaArrayNorm = smaArrayNormaliser.fit_transform(smaArray)
+
+    emaArrayNormaliser = preprocessing.MinMaxScaler()
+    emaArrayNorm = emaArrayNormaliser.fit_transform(emaArray)
+
+    macdArrayNormaliser = preprocessing.MinMaxScaler()
+    macdArrayNorm = macdArrayNormaliser.fit_transform(macdArray)
 
     #assert creates an error message if the condition is false, the string after the comma is printed
-    assert ohlcArrayNorm.shape[0] == technicalIndicatorsNorm.shape[0] == nextOpenNorm.shape[0], 'The lengths of ohlcArray, technical_indicatorsNorm and nextOpenNorm are not equal'
-    return ohlcArrayNorm, technicalIndicatorsNorm, nextOpenNorm, nextOpen, openNormaliser
+    assert ohlcArrayNorm.shape[0] == macdArrayNorm.shape[0] == emaArrayNorm.shape[0] == smaArrayNorm.shape[0] == nextOpenNorm.shape[0], 'The lengths of ohlcArray, technical_indicatorsNorm and nextOpenNorm are not equal'
+    return ohlcArrayNorm, smaArrayNorm, macdArrayNorm, emaArrayNorm, nextOpenNorm, nextOpen, openNormaliser
 
