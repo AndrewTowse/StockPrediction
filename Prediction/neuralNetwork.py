@@ -4,9 +4,12 @@ from keras import layers
 import numpy as np
 import pandas as pd
 import manipulate_data_set as mp
+import joblib
 
-csvPath = r"C:\Users\andre\PycharmProjects\StockPrediction\Prediction\AAPL.csv"
-ohlcArray, smaIndicators, macdIndicators, emaIndicators, nextDayOpenNorm, nextDayOpen, openNormaliser = mp.createDataSet(csvPath, 25)
+
+csvPath = "APPL.csv"
+ohlcArray, smaIndicators, macdIndicators, emaIndicators, nextDayOpenNorm, nextDayOpen, openNormaliser, lastClose = mp.createDataSet(csvPath, 25)
+
 '''
 print("OHLC SHAPE: ", ohlcArray.shape)
 print("Indicator SHAPE: ", technicIndicatorsNorm.shape)
@@ -34,6 +37,7 @@ emaTrain = emaIndicators[:trainSize]
 macdTrain = macdIndicators[:trainSize]
 nextNormTrain = nextDayOpenNorm[:trainSize]
 nextOpenTrain = nextDayOpen[:trainSize]
+lastCloseTrain = lastClose[trainSize:]
 
 #Test Data
 ohlcTest = ohlcArray[trainSize:]
@@ -42,7 +46,7 @@ emaTest = emaIndicators[trainSize:]
 macdTest = macdIndicators[trainSize:]
 nextNormTest = nextDayOpenNorm[trainSize:]
 nextOpenTest = nextDayOpen[trainSize:]
-
+lastCloseTest = lastClose[trainSize:]
 
 #prints shape of all the data
 print("Ohlc SHAPE: ", ohlcTrain.shape)
@@ -54,8 +58,12 @@ print("NextDayOpenOriginal SHAPE: ", nextOpenTrain.shape)
 
 
 
+
+
+
+
 '''
-#Making two seperate models will allow us to have ohlc data not affect the techIndicators until the final model
+#Making several seperate models will allow us to have ohlc data not affect the techIndicators until the final model
 #Model that will use the LSTM
 ohlcInput = layers.Input(shape=(ohlcTrain.shape[1], 5))
 #LSTM layer
@@ -122,45 +130,47 @@ finalModel.compile(optimizer= adam, loss="mse")
 finalModel.fit([ohlcTrain, smaTrain, emaTrain, macdTrain], nextNormTrain, epochs=100, batch_size=32, shuffle= True, verbose=1)
 
 
-finalModel.save(f"finalChangingModel.h5")
-
+finalModel.save(f"newAppleSavedModel.h5")
 '''
-finalModel = keras.models.load_model("finalSavedModel.h5")
+##############################################################################################
+
+finalModel = keras.models.load_model("appleSavedModel.h5")
 
 predicted = finalModel.predict([ohlcTest, smaTest, emaTest, macdTest])
 
-#print(predicted)
 predicted = openNormaliser.inverse_transform(predicted)
 #print(predicted)
-#assert nextDayOpen.shape == predicted.shape, "They be different shapes"
+#assert nextDayOpen.shape == predicted.shape, "They are different shapes"
 
 
 
-'''
 realMeanSquaredError = np.mean(np.square(nextOpenTest - predicted))
 print("Real mean error: ", realMeanSquaredError)
 scaledMeanSquaredError = realMeanSquaredError / (np.max(nextOpenTest) - np.min(nextOpenTest)) * 100
 print("Scaled mean error: ", scaledMeanSquaredError)
-'''
-
+print(predicted)
 
 
 import matplotlib.pyplot as plt
 
-plt.gcf().set_size_inches(22, 15, forward=True)
+plt.gcf().set_size_inches(10, 5, forward=True)
 
 start = 0
 end = -1
 
-real = plt.plot(nextOpenTest[start:end], label='real')
-pred = plt.plot(predicted[start:end],"o", label='predicted')
+
+plt.plot(lastCloseTest[start:end],"o", label='realPoint', color = 'green')
+plt.plot(nextOpenTest[start:end],"o", label='realPoint', color = 'black')
+plt.plot(predicted[start:end],"o", label='predicted points', color= 'red')
+
+#plt.plot(predicted[start:end], label='predicted line', color = 'green')
 
 '''
 # real = plt.plot(unscaled_y[start:end], label='real')
 # pred = plt.plot(y_predicted[start:end], label='predicted')
 '''
 
-plt.legend(['Real', 'Predicted'])
+plt.legend(['Last close', 'Real next open', 'Predicted next open'])
 plt.show()
 
 
